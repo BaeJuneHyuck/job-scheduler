@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List 관리</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        .todo-item {
+            position: relative;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .todo-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .priority-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .priority-high {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .priority-medium {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .priority-low {
+            background-color: #198754;
+            color: white;
+        }
+
+        .todo-item.completed {
+            opacity: 0.7;
+        }
+
+        .todo-item.completed .card-title {
+            text-decoration: line-through;
+        }
+
+        .todo-actions {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .todo-item:hover .todo-actions {
+            opacity: 1;
+        }
+
+        .due-date {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .category-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background-color: #e9ecef;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .new-item {
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        .stats-card {
+            transition: all 0.3s ease;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .progress {
+            height: 5px;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        #todoForm {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+		.keyword-btn {
+			padding: 2px 8px;
+			font-size: 0.8rem;
+			border-radius: 12px;
+			background: #e9ecef;
+			border: none;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		.keyword-btn:hover {
+			background: #dee2e6;
+		}
+
+		.filter-tag {
+			padding: 4px 12px;
+			background: #0d6efd;
+			color: white;
+			border-radius: 20px;
+			font-size: 0.9rem;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.filter-tag .remove-filter {
+			cursor: pointer;
+			opacity: 0.8;
+		}
+
+		.filter-tag .remove-filter:hover {
+			opacity: 1;
+		}
+		
+		.filter-tag {
+			padding: 4px 12px;
+			background: #0d6efd;
+			color: white;
+			border-radius: 20px;
+			font-size: 0.9rem;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.filter-tag .remove-filter {
+			cursor: pointer;
+			opacity: 0.8;
+		}
+
+		.filter-tag .remove-filter:hover {
+			opacity: 1;
+		}
+
+		.keyword-btn {
+			padding: 2px 8px;
+			font-size: 0.8rem;
+			border-radius: 12px;
+			background: #e9ecef;
+			border: none;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		.keyword-btn:hover {
+			background: #dee2e6;
+		}
+    </style>
+</head>
+
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <div class="row g-4">
+            <!-- 통계 섹션 -->
+            <div class="col-12 mb-4">
+                <div class="row g-4">
+                    <div class="col-md-3">
+                        <div class="card shadow-sm stats-card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">전체 할 일</h6>
+                                <h2 class="card-title mb-0" id="totalTodos">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm stats-card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">완료된 할 일</h6>
+                                <h2 class="card-title mb-0" id="completedTodos">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm stats-card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">오늘 마감</h6>
+                                <h2 class="card-title mb-0" id="dueTodayTodos">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card shadow-sm stats-card">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">높은 우선순위</h6>
+                                <h2 class="card-title mb-0" id="highPriorityTodos">0</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 차트 섹션 -->
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <canvas id="statsChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+            <!-- Todo 리스트 -->
+			<div class="col-12">
+				<div class="card shadow-sm">
+					<div class="card-body">
+						<div class="d-flex justify-content-between align-items-center mb-4">
+							<h2 class="card-title mb-0">할 일 목록</h2>
+							<div class="d-flex gap-2 align-items-center">
+								<div id="activeFilters" class="d-flex gap-2 flex-wrap">
+									<!-- 활성화된 필터 키워드가 여기에 추가됨 -->
+								</div>
+								<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#todoModal">
+									<i class="bi bi-plus-lg"></i> 새로운 할 일
+								</button>
+							</div>
+						</div>
+						<div id="todoList">
+							<!-- Todo 아이템들이 여기에 동적으로 추가됨 -->
+						</div>
+					</div>
+				</div>
+			</div>
+        </div>
+    </div>
+	
+	<div class="modal fade" id="todoModal" tabindex="-1" aria-labelledby="todoModalLabel" aria-hidden="true">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="todoModalLabel">새로운 할 일</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body">
+					<form id="todoForm">
+						<div class="mb-3">
+							<label class="form-label">제목</label>
+							<input type="text" class="form-control" id="todoTitle" required>
+						</div>
+						<div class="mb-3">
+							<label class="form-label">내용</label>
+							<textarea class="form-control" id="todoContent" rows="3"></textarea>
+						</div>
+						<div class="mb-3">
+							<label class="form-label">카테고리</label>
+							<input type="text" class="form-control" id="todoCategory" placeholder="쉼표로 구분">
+						</div>
+						<div class="mb-3">
+							<label class="form-label">우선순위</label>
+							<select class="form-select" id="todoPriority">
+								<option value="low">낮음</option>
+								<option value="medium">중간</option>
+								<option value="high">높음</option>
+							</select>
+						</div>
+						<div class="mb-3">
+							<label class="form-label">마감일</label>
+							<input type="date" class="form-control" id="todoDueDate">
+						</div>
+					</form>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+					<button type="button" class="btn btn-primary" id="saveTodoBtn">저장하기</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+    <!-- 토스트 메시지 컨테이너 -->
+    <div class="toast-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+	
+	<script>
+        class TodoListApp {
+            constructor() {	
+                this.activeFilters = new Set();
+                this.loadFromStorage();
+                this.initElements();
+                this.initEventListeners();
+                this.initChart();
+                this.renderAll();
+                this.startAutoSave();
+            }
+
+            loadFromStorage() {
+                try {
+                    const savedTodos = localStorage.getItem('todos');
+                    const savedStats = localStorage.getItem('todoStats');
+                    
+                    this.todos = savedTodos ? JSON.parse(savedTodos) : [];
+                    this.stats = savedStats ? JSON.parse(savedStats) : {
+                        completed: 0,
+                        totalCreated: 0
+                    };
+                } catch (e) {
+                    console.error('localStorage 로드 중 오류:', e);
+                    this.todos = [];
+                    this.stats = { completed: 0, totalCreated: 0 };
+                }
+            }
+
+            saveToStorage() {
+                try {
+                    localStorage.setItem('todos', JSON.stringify(this.todos));
+                    localStorage.setItem('todoStats', JSON.stringify(this.stats));
+                } catch (e) {
+                    console.error('localStorage 저장 중 오류:', e);
+                    this.showToast('저장 중 오류가 발생했습니다.', 'danger');
+                }
+            }
+
+            initElements() {
+                this.todoForm = document.getElementById('todoForm');
+                this.todoList = document.getElementById('todoList');
+                this.statsChart = document.getElementById('statsChart');
+                this.saveButton = document.getElementById('saveTodoBtn');
+                
+                // 입력 폼 요소들
+                this.titleInput = document.getElementById('todoTitle');
+                this.contentInput = document.getElementById('todoContent');
+                this.categoryInput = document.getElementById('todoCategory');
+                this.priorityInput = document.getElementById('todoPriority');
+                this.dueDateInput = document.getElementById('todoDueDate');
+            }
+
+            initEventListeners() {
+                // 저장 버튼 클릭 이벤트
+                this.saveButton.addEventListener('click', () => {
+                    if (this.validateForm()) {
+                        if (this.editingTodoId) {
+                            this.updateTodo();
+                        } else {
+                            this.addTodo();
+                        }
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('todoModal'));
+                        modal.hide();
+                    }
+                });
+
+                // 모달이 닫힐 때 폼 초기화
+                document.getElementById('todoModal').addEventListener('hidden.bs.modal', () => {
+                    this.todoForm.reset();
+                    this.editingTodoId = null;
+                });
+
+                // 자동 저장
+                window.addEventListener('beforeunload', () => {
+                    this.saveToStorage();
+                });
+            }
+
+            startAutoSave() {
+                setInterval(() => {
+                    this.saveToStorage();
+                }, 5 * 60 * 1000);
+            }
+
+            validateForm() {
+                if (!this.titleInput.value.trim()) {
+                    this.showToast('제목을 입력해주세요.', 'warning');
+                    return false;
+                }
+                return true;
+            }
+
+            showToast(message, type = 'info') {
+                const toastContainer = document.querySelector('.toast-container');
+                const toastElement = document.createElement('div');
+                const toastId = `toast-${Date.now()}`;
+                
+                toastElement.innerHTML = `
+                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+                
+                toastContainer.appendChild(toastElement.firstElementChild);
+                const toast = new bootstrap.Toast(document.getElementById(toastId), {
+                    delay: 3000
+                });
+                toast.show();
+
+                const toastInstance = document.getElementById(toastId);
+                toastInstance.addEventListener('hidden.bs.toast', () => {
+                    toastInstance.remove();
+                });
+            }
+
+            initChart() {
+                const ctx = this.statsChart.getContext('2d');
+                this.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['높은 우선순위', '중간 우선순위', '낮은 우선순위'],
+                        datasets: [{
+                            label: '할 일 수',
+                            data: [0, 0, 0],
+                            backgroundColor: [
+                                'rgba(220, 53, 69, 0.5)',
+                                'rgba(255, 193, 7, 0.5)',
+                                'rgba(25, 135, 84, 0.5)'
+                            ],
+                            borderColor: [
+                                'rgb(220, 53, 69)',
+                                'rgb(255, 193, 7)',
+                                'rgb(25, 135, 84)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+
+            addFilter(keyword) {
+                this.activeFilters.add(keyword);
+                this.renderFilters();
+                this.renderTodos();
+            }
+
+            removeFilter(keyword) {
+                this.activeFilters.delete(keyword);
+                this.renderFilters();
+                this.renderTodos();
+            }
+
+            renderFilters() {
+                const filterContainer = document.getElementById('activeFilters');
+                filterContainer.innerHTML = Array.from(this.activeFilters).map(filter => `
+                    <div class="filter-tag">
+                        ${filter}
+                        <span class="remove-filter" onclick="todoApp.removeFilter('${filter}')">&times;</span>
+                    </div>
+                `).join('');
+            }
+
+            addTodo() {
+                const todo = {
+                    id: Date.now(),
+                    title: this.titleInput.value,
+                    content: this.contentInput.value,
+                    categories: this.categoryInput.value.split(',').map(cat => cat.trim()).filter(cat => cat),
+                    priority: this.priorityInput.value,
+                    dueDate: this.dueDateInput.value,
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                };
+
+                this.todos.push(todo);
+                this.stats.totalCreated++;
+                this.renderAll();
+                this.saveToStorage();
+                this.showToast('새로운 할 일이 추가되었습니다.', 'success');
+                this.todoForm.reset();
+            }
+
+            updateTodo() {
+                const todo = this.todos.find(t => t.id === this.editingTodoId);
+                if (todo) {
+                    todo.title = this.titleInput.value;
+                    todo.content = this.contentInput.value;
+                    todo.categories = this.categoryInput.value.split(',').map(cat => cat.trim()).filter(cat => cat);
+                    todo.priority = this.priorityInput.value;
+                    todo.dueDate = this.dueDateInput.value;
+
+                    this.renderAll();
+                    this.saveToStorage();
+                    this.showToast('할 일이 수정되었습니다.', 'success');
+                }
+                this.editingTodoId = null;
+            }
+
+            editTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (!todo) return;
+
+                this.editingTodoId = id;
+                this.titleInput.value = todo.title;
+                this.contentInput.value = todo.content;
+                this.categoryInput.value = todo.categories.join(', ');
+                this.priorityInput.value = todo.priority;
+                this.dueDateInput.value = todo.dueDate;
+
+                const modal = new bootstrap.Modal(document.getElementById('todoModal'));
+                modal.show();
+            }
+
+            toggleTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo) {
+                    todo.completed = !todo.completed;
+                    if (todo.completed) {
+                        this.stats.completed++;
+                    } else {
+                        this.stats.completed--;
+                    }
+                    this.renderAll();
+                    this.saveToStorage();
+                }
+            }
+
+            deleteTodo(id) {
+                if (confirm('이 할 일을 삭제하시겠습니까?')) {
+                    const todoIndex = this.todos.findIndex(t => t.id === id);
+                    if (todoIndex > -1) {
+                        const todo = this.todos[todoIndex];
+                        if (todo.completed) {
+                            this.stats.completed--;
+                        }
+                        this.todos.splice(todoIndex, 1);
+                        this.renderAll();
+                        this.saveToStorage();
+                        this.showToast('할 일이 삭제되었습니다.', 'info');
+                    }
+                }
+            }
+
+            updateStats() {
+                const totalTodos = this.todos.length;
+                const completedTodos = this.todos.filter(todo => todo.completed).length;
+                const dueTodayTodos = this.todos.filter(todo => {
+                    const today = new Date().toISOString().split('T')[0];
+                    return todo.dueDate === today && !todo.completed;
+                }).length;
+                const highPriorityTodos = this.todos.filter(todo => 
+                    todo.priority === 'high' && !todo.completed
+                ).length;
+
+                document.getElementById('totalTodos').textContent = totalTodos;
+                document.getElementById('completedTodos').textContent = completedTodos;
+                document.getElementById('dueTodayTodos').textContent = dueTodayTodos;
+                document.getElementById('highPriorityTodos').textContent = highPriorityTodos;
+
+                const priorityCounts = {
+                    high: this.todos.filter(t => t.priority === 'high' && !t.completed).length,
+                    medium: this.todos.filter(t => t.priority === 'medium' && !t.completed).length,
+                    low: this.todos.filter(t => t.priority === 'low' && !t.completed).length
+                };
+
+                this.chart.data.datasets[0].data = [
+                    priorityCounts.high,
+                    priorityCounts.medium,
+                    priorityCounts.low
+                ];
+                this.chart.update();
+            }
+
+            renderAll() {
+                this.renderTodos();
+                this.updateStats();
+            }
+
+            renderTodos() {
+                const filteredTodos = this.activeFilters.size > 0 
+                    ? this.todos.filter(todo => {
+                        return Array.from(this.activeFilters).some(filter => 
+                            todo.title.includes(filter) || 
+                            todo.content.includes(filter) ||
+                            todo.categories.includes(filter) ||
+                            todo.priority === filter
+                        );
+                    })
+                    : this.todos;
+
+                if (filteredTodos.length === 0) {
+                    this.todoList.innerHTML = `
+                        <div class="text-center text-muted p-4">
+                            할 일이 없습니다. 새로운 할 일을 추가해보세요!
+                        </div>
+                    `;
+                    return;
+                }
+
+                this.todoList.innerHTML = filteredTodos.map(todo => `
+                    <div class="todo-item card ${todo.completed ? 'completed' : ''} new-item">
+                        <div class="card-body">
+                            <div class="priority-badge priority-${todo.priority}">
+                                ${this.getPriorityText(todo.priority)}
+                            </div>
+                            <h5 class="card-title">${todo.title}</h5>
+                            <p class="card-text">${todo.content || '내용 없음'}</p>
+                            
+                            ${todo.categories.length > 0 ? `
+                                <div class="mb-2">
+                                    ${todo.categories.map(cat => `
+                                        <button class="keyword-btn me-1" onclick="todoApp.addFilter('${cat}')">
+                                            ${cat}
+                                        </button>
+                                    `).join('')}
+                                    <button class="keyword-btn" onclick="todoApp.addFilter('${todo.priority}')">
+                                        ${this.getPriorityText(todo.priority)}
+                                    </button>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="due-date">
+                                마감: ${todo.dueDate || '설정되지 않음'}
+                            </div>
+                            
+                            <div class="todo-actions">
+                                <button 
+                                    onclick="event.stopPropagation(); todoApp.toggleTodo(${todo.id})" 
+                                    class="btn btn-sm ${todo.completed ? 'btn-warning' : 'btn-success'}"
+                                >
+                                    ${todo.completed ? '완료 취소' : '완료하기'}
+                                </button>
+                                <button 
+                                    onclick="event.stopPropagation(); todoApp.editTodo(${todo.id})" 
+                                    class="btn btn-sm btn-info mx-1"
+                                >
+                                    편집
+                                </button>
+                                <button 
+                                    onclick="event.stopPropagation(); todoApp.deleteTodo(${todo.id})" 
+                                    class="btn btn-sm btn-danger"
+                                >
+                                    삭제
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            getPriorityText(priority) {
+                switch (priority) {
+                    case 'high': return '높음';
+                    case 'medium': return '중간';
+                    case 'low': return '낮음';
+                    default: return '없음';
+                }
+            }
+        }
+
+        // 앱 초기화
+        const todoApp = new TodoListApp();
+    </script>
+</body>
+</html>
